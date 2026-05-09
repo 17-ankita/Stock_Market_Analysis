@@ -76,10 +76,11 @@ def apply_theme(fig):
 # ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("stock_market_analysis.csv")
+    df = pd.read_excel("stock_market_analysis.xlsx")
     return df
 
 df = load_data()
+
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("Stock Market Filters")
