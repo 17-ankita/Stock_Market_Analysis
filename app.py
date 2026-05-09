@@ -2,67 +2,43 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Stock Market Analysis Dashboard",
     page_icon="📈",
     layout="wide"
 )
 
-# ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
 .stApp {
     background: linear-gradient(135deg, #020617, #0f172a, #1e293b);
     color: #f8fafc;
 }
-
 section[data-testid="stSidebar"] {
     background: #020617;
-    border-right: 1px solid rgba(255,255,255,0.08);
 }
-
 h1 {
     color: #38bdf8 !important;
     font-weight: 800 !important;
 }
-
-h2, h3 {
-    color: #f8fafc !important;
-}
-
 [data-testid="metric-container"] {
     background: linear-gradient(135deg, #0f172a, #1e3a8a);
     border: 1px solid rgba(56,189,248,0.25);
     padding: 18px;
     border-radius: 18px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.35);
 }
-
-[data-testid="metric-container"] label {
-    color: #cbd5e1 !important;
-}
-
-[data-testid="metric-container"] div {
-    color: white !important;
-}
-
 button[data-baseweb="tab"] {
     background: #1e293b !important;
     color: white !important;
     border-radius: 12px !important;
-    margin-right: 8px !important;
-    padding: 10px 18px !important;
 }
-
 button[data-baseweb="tab"][aria-selected="true"] {
     background: linear-gradient(135deg, #0284c7, #38bdf8) !important;
-    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- HELPER ----------------
+
 def apply_theme(fig):
     fig.update_layout(
         template="plotly_dark",
@@ -73,34 +49,119 @@ def apply_theme(fig):
     )
     return fig
 
-# ---------------- LOAD DATA ----------------
+
 @st.cache_data
 def load_data():
     df = pd.read_excel("stock_market_analysis.xlsx")
+
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.replace(" ", "_")
+        .str.replace("-", "_")
+        .str.replace("/", "_")
+        .str.replace("%", "Percent")
+        .str.replace("(", "")
+        .str.replace(")", "")
+    )
+
+    rename_map = {
+        "Company_Name": "Company",
+        "Name": "Company",
+        "Industry_Type": "Industry",
+        "Sector": "Industry",
+        "Headquarter": "Headquarters",
+        "Location": "Headquarters",
+        "Market_Cap": "Market_Capital",
+        "Market_Capital_Cr": "Market_Capital",
+        "Market_Capital_Crore": "Market_Capital",
+        "Profit_Percent_": "Profit_Percent",
+        "Profit": "Profit_Percent",
+        "Average_Profit": "Profit_Percent",
+        "Website_Design": "Website_Design_Score",
+        "Website_Design_Score_": "Website_Design_Score",
+        "Website_Score": "Website_Design_Score",
+        "Design_Type": "Website_Design_Type",
+        "Website_Type": "Website_Design_Type",
+        "Design_Issue": "Design_Issues",
+        "Issues": "Design_Issues",
+        "UX": "UX_Score",
+        "UX_Score_": "UX_Score",
+        "Performance": "Performance_Score",
+        "Performance_Score_": "Performance_Score"
+    }
+
+    df = df.rename(columns=rename_map)
+
+    if "Company" not in df.columns:
+        df["Company"] = "Company " + (df.index + 1).astype(str)
+
+    if "Industry" not in df.columns:
+        df["Industry"] = "Unknown Industry"
+
+    if "Headquarters" not in df.columns:
+        df["Headquarters"] = "Unknown Region"
+
+    if "Market_Capital" not in df.columns:
+        df["Market_Capital"] = 0
+
+    if "ROCE" not in df.columns:
+        df["ROCE"] = 0
+
+    if "Profit_Percent" not in df.columns:
+        df["Profit_Percent"] = 0
+
+    if "Website_Design_Score" not in df.columns:
+        df["Website_Design_Score"] = 0
+
+    if "Website_Design_Type" not in df.columns:
+        df["Website_Design_Type"] = "Not Available"
+
+    if "Design_Issues" not in df.columns:
+        df["Design_Issues"] = 0
+
+    if "UX_Score" not in df.columns:
+        df["UX_Score"] = df["Website_Design_Score"]
+
+    if "Performance_Score" not in df.columns:
+        df["Performance_Score"] = df["Website_Design_Score"]
+
+    numeric_cols = [
+        "Market_Capital",
+        "ROCE",
+        "Profit_Percent",
+        "Website_Design_Score",
+        "Design_Issues",
+        "UX_Score",
+        "Performance_Score"
+    ]
+
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
     return df
+
 
 df = load_data()
 
-
-# ---------------- SIDEBAR ----------------
 st.sidebar.title("Stock Market Filters")
 
 industry_filter = st.sidebar.multiselect(
     "Select Industry",
-    sorted(df["Industry"].unique()),
-    default=sorted(df["Industry"].unique())
+    sorted(df["Industry"].dropna().unique()),
+    default=sorted(df["Industry"].dropna().unique())
 )
 
 region_filter = st.sidebar.multiselect(
     "Select Headquarters",
-    sorted(df["Headquarters"].unique()),
-    default=sorted(df["Headquarters"].unique())
+    sorted(df["Headquarters"].dropna().unique()),
+    default=sorted(df["Headquarters"].dropna().unique())
 )
 
 design_filter = st.sidebar.multiselect(
     "Select Website Design Type",
-    sorted(df["Website_Design_Type"].unique()),
-    default=sorted(df["Website_Design_Type"].unique())
+    sorted(df["Website_Design_Type"].dropna().unique()),
+    default=sorted(df["Website_Design_Type"].dropna().unique())
 )
 
 filtered_df = df[
@@ -109,16 +170,14 @@ filtered_df = df[
     (df["Website_Design_Type"].isin(design_filter))
 ].copy()
 
-# ---------------- HEADER ----------------
 st.title("Stock Market Analysis Dashboard")
 
 st.markdown("""
-This dashboard analyzes **500 stock market companies with market capitalization below ₹500 crore**.
+This dashboard analyzes **stock market companies with market capitalization below ₹500 crore**.
 It focuses on market landscape, client potential, regional opportunities, website quality,
 UX performance, and opportunities for Inmogic Technologies.
 """)
 
-# ---------------- KPI SECTION ----------------
 total_companies = len(filtered_df)
 total_industries = filtered_df["Industry"].nunique()
 total_regions = filtered_df["Headquarters"].nunique()
@@ -140,7 +199,6 @@ col7.metric("Avg Website Score", f"{avg_website:.1f}/100")
 
 st.divider()
 
-# ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Market Landscape",
     "Client Potential",
@@ -149,7 +207,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Inmogic Opportunities"
 ])
 
-# ---------------- TAB 1 ----------------
 with tab1:
     st.subheader("Market Landscape")
 
@@ -189,7 +246,6 @@ with tab1:
         fig.update_layout(xaxis_tickangle=-35)
         st.plotly_chart(apply_theme(fig), use_container_width=True)
 
-# ---------------- TAB 2 ----------------
 with tab2:
     st.subheader("Client Potential Analysis")
 
@@ -202,7 +258,7 @@ with tab2:
             top_roce,
             x="Company",
             y="ROCE",
-            title="Top 10 Companies by ROCE",
+            title="Top Companies by ROCE",
             text_auto=".1f",
             color="ROCE"
         )
@@ -216,7 +272,7 @@ with tab2:
             top_profit,
             x="Company",
             y="Profit_Percent",
-            title="Top 10 Companies by Profit %",
+            title="Top Companies by Profit %",
             text_auto=".1f",
             color="Profit_Percent"
         )
@@ -224,13 +280,13 @@ with tab2:
         st.plotly_chart(apply_theme(fig), use_container_width=True)
 
     st.markdown("### High Potential Client Scorecard")
-    client_scorecard = filtered_df[
-        ["Company", "Industry", "Headquarters", "Market_Capital", "ROCE", "Profit_Percent"]
-    ].sort_values(["ROCE", "Profit_Percent"], ascending=False)
+    st.dataframe(
+        filtered_df[
+            ["Company", "Industry", "Headquarters", "Market_Capital", "ROCE", "Profit_Percent"]
+        ].sort_values(["ROCE", "Profit_Percent"], ascending=False),
+        use_container_width=True
+    )
 
-    st.dataframe(client_scorecard, use_container_width=True)
-
-# ---------------- TAB 3 ----------------
 with tab3:
     st.subheader("Regional Opportunities")
 
@@ -271,7 +327,6 @@ with tab3:
         fig.update_layout(xaxis_tickangle=-35)
         st.plotly_chart(apply_theme(fig), use_container_width=True)
 
-# ---------------- TAB 4 ----------------
 with tab4:
     st.subheader("Website Quality Assessment")
 
@@ -326,7 +381,6 @@ with tab4:
     )
     st.plotly_chart(apply_theme(fig), use_container_width=True)
 
-# ---------------- TAB 5 ----------------
 with tab5:
     st.subheader("Opportunity for Inmogic Technologies")
 
@@ -339,11 +393,7 @@ with tab5:
     col1, col2 = st.columns(2)
 
     with col1:
-        opportunity_industry = (
-            opportunity_df["Industry"]
-            .value_counts()
-            .reset_index()
-        )
+        opportunity_industry = opportunity_df["Industry"].value_counts().reset_index()
         opportunity_industry.columns = ["Industry", "Potential Clients"]
 
         fig = px.bar(
@@ -358,12 +408,7 @@ with tab5:
         st.plotly_chart(apply_theme(fig), use_container_width=True)
 
     with col2:
-        opportunity_region = (
-            opportunity_df["Headquarters"]
-            .value_counts()
-            .reset_index()
-            .head(15)
-        )
+        opportunity_region = opportunity_df["Headquarters"].value_counts().reset_index().head(15)
         opportunity_region.columns = ["Headquarters", "Potential Clients"]
 
         fig = px.bar(
@@ -385,8 +430,10 @@ with tab5:
         use_container_width=True
     )
 
-# ---------------- DATASET VIEW ----------------
 st.divider()
 
 with st.expander("View Filtered Dataset"):
     st.dataframe(filtered_df, use_container_width=True)
+
+with st.expander("View Detected Column Names"):
+    st.write(list(df.columns))
